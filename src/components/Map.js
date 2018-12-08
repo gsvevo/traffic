@@ -6,23 +6,21 @@ export default class Map extends Component {
     constructor(props) {
         super(props);    
        
-        this.state = {
-            api_url: 'https://data.edmonton.ca/resource/87ck-293k.json',
+        this.state = {            
             map: false,
-          viewport: {
+            viewport: {
             zoom: 10,
             center: [ -113.4909, 53.5444 ]
-            },
-            data: null
+            },            
       };
     } 
     
-    initializeMap() {
+    static initializeMap(state, viewport) {
         MapboxGL.accessToken = process.env.REACT_APP_MAPBOX_TOKEN;
         let map = new MapboxGL.Map({
             container: "map" ,
             style: 'mapbox://styles/mapbox/light-v9' ,
-            ... this.state.viewport
+            ...viewport
         })
 
         map.on('load', () => {
@@ -31,10 +29,10 @@ export default class Map extends Component {
                 "type": "circle",
                 "source":{
                     "type": "geojson",
-                    "data": this.state.data
+                    "data": state.data
                 },
                 "paint": {
-                    "circle-radius": 5,
+                    "circle-radius": 7,
                      "circle-color": "#B4D455"
                 }
             })
@@ -59,52 +57,25 @@ export default class Map extends Component {
                 .addTo(map);
         });
 
-        this.setState({ map });
-    }
-
-    createFeatureCollection(data) {
-        let features =[];
-        data.forEach(point => {
-            features.push({
-                "type": "Feature",
-                "geometry": {
-                    "type": "Point",
-                    "coordinates": [
-                        parseFloat(point.location.longitude),
-                        parseFloat(point.location.latitude)
-                    ]                    
-                },
-                "properties":{
-                    "description": point.description,
-                    "details": point.details,
-                    "duration": point.duration,
-                    "impact": point.impact
-                }
-            });
+        map.on('mouseenter', 'points', () => {
+            map.getCanvas().style.cursor = 'pointer';
         });
 
-        return {
-            "type": "FeatureCollection",
-            "features": features
-        }
+        map.on('mouseleave', 'points', () => {
+            map.getCanvas().style.cursor = '';
+        });
+
+        return { map };
     }
 
-
-    componentDidMount(){
-        const { data, api_url} = this.state;
-
-        if (!data) {
-            fetch(api_url, {method: 'GET' })
-            .then(response => response.json())
-            .then(response => this.createFeatureCollection(response))
-            .then(response => this.setState({ data: response}));
-        }
+    static getDerivedStateFromProps(nextProps, prevState) {
+        const { map, data } = nextProps;
+        if ( data && !map ) return Map.initializeMap(nextProps, prevState.viewport);
+        else return null;
     }
+
 
     render() {
-        const { map, data } = this.state;
-        if ( data && !map ) this.initializeMap();
-
         return (
             <div style={{ width: 1100, height: 600}} id="map" />
         );
